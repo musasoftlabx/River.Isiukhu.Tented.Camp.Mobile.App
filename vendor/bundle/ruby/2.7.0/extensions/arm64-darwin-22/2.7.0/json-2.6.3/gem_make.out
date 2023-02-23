@@ -1,0 +1,13 @@
+current directory: /Users/musa-mutetwi/projects/mobile/ritc_erp/vendor/bundle/ruby/2.7.0/gems/json-2.6.3/ext/json
+/Users/musa-mutetwi/.rbenv/versions/2.7.5/bin/ruby -I /Users/musa-mutetwi/.rbenv/versions/2.7.5/lib/ruby/2.7.0 -r ./siteconf20221230-9167-1smkal7.rb extconf.rb
+creating Makefile
+
+current directory: /Users/musa-mutetwi/projects/mobile/ritc_erp/vendor/bundle/ruby/2.7.0/gems/json-2.6.3/ext/json
+make "DESTDIR=" clean
+
+current directory: /Users/musa-mutetwi/projects/mobile/ritc_erp/vendor/bundle/ruby/2.7.0/gems/json-2.6.3/ext/json
+make "DESTDIR="
+make: Nothing to be done for `all'.
+
+current directory: /Users/musa-mutetwi/projects/mobile/ritc_erp/vendor/bundle/ruby/2.7.0/gems/json-2.6.3/ext/json
+make "DESTDIR=" install
