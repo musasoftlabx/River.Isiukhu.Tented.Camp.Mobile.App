@@ -1,26 +1,57 @@
 // * React
-import {memo} from 'react';
+import {memo, useEffect, useState} from 'react';
 
 // * React Native imports
 import {Alert, useWindowDimensions, View} from 'react-native';
 
 // * React Native Libraries
-import {Button, Text, TextInput, useTheme} from 'react-native-paper';
+import {
+  Button,
+  Chip,
+  HelperText,
+  Text,
+  TextInput,
+  useTheme,
+} from 'react-native-paper';
 import {RFPercentage as s} from 'react-native-responsive-fontsize';
 
 // * JS Libraries
+import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {Formik} from 'formik';
-import {Motion} from '@legendapp/motion';
-import {useMutation} from '@tanstack/react-query';
 import * as Yup from 'yup';
 
 // * Utilities
-import {styles} from '../../styles';
 import ButtonX from '../../components/ButtonX';
+import TextX from '../../components/TextX';
+import {styles} from '../../styles';
+import {useConfigStore} from '../../store';
+import MaskInput, {createNumberMask} from 'react-native-mask-input';
 
-const Add = () => {
+const Add = ({jumpTo}: {jumpTo: (index: string) => void}) => {
+  // ? Hooks
+  const axios = useConfigStore(state => state.axios);
+  const queryClient = useQueryClient();
   const theme = useTheme();
+  const layout = useWindowDimensions();
+
+  const {data: frequents, isFetched: hasFetched} = useQuery(
+    ['frequents'],
+    () => axios.get(`purchases/frequents`),
+    {select: data => data.data},
+  );
+  const {mutate} = useMutation((data: IForm) => axios.post('kitchen', data));
+
   const primary = theme.colors.primary;
+
+  // ? States
+  const [showFrequents, setShowFrequents] = useState(false);
+
+  // * Interfaces
+  interface IForm {
+    item: string;
+    opening: string;
+    closing: string;
+  }
 
   return (
     <Formik
@@ -34,23 +65,33 @@ const Add = () => {
             (v: any) => v && v.toString().length <= 3,
           )
           .required('Required'),
-        closing: Yup.number().test(
-          'len',
-          'Max of 3 chars',
-          (v: any) => v && v.toString().length <= 3,
-        ),
       })}
-      onSubmit={(values, {setSubmitting}) => {
-        Alert.alert('sub', JSON.stringify(values), [{text: 'OK'}]);
+      onSubmit={(values, {resetForm, setSubmitting}) => {
+        setSubmitting(false);
+        mutate(values, {
+          onSuccess: () => {
+            queryClient.prefetchQuery(['kitchen']);
+            jumpTo('first');
+            resetForm();
+          },
+          onError: (error: any) => {
+            setSubmitting(false);
+            Alert.alert(error.response.data.subject, error.response.data.body, [
+              {text: 'OK'},
+            ]);
+          },
+          onSettled: () => setSubmitting(false),
+        });
       }}>
       {({
-        values,
         errors,
-        touched,
-        handleChange,
-        handleBlur,
-        handleSubmit,
         isSubmitting,
+        touched,
+        values,
+        handleBlur,
+        handleChange,
+        handleSubmit,
+        setFieldValue,
       }) => (
         <View
           style={{
@@ -61,69 +102,146 @@ const Add = () => {
           }}>
           <TextInput
             label="Item *"
-            onChangeText={handleChange('item')}
+            placeholder="Name of the item"
+            activeUnderlineColor={
+              touched.item && Boolean(errors.item)
+                ? theme.colors.error
+                : theme.colors.secondary
+            }
+            error={touched.item && Boolean(errors.item)}
+            maxLength={20}
             onBlur={handleBlur('item')}
-            placeholder="Select item"
+            onChangeText={handleChange('item')}
+            right={
+              <TextInput.Icon
+                icon={showFrequents ? 'collapse-all' : 'animation-outline'}
+                onPress={() => setShowFrequents((prev: any) => !prev)}
+              />
+            }
             style={styles.textInput}
-            theme={{roundness: 0}}
             value={values.item}
           />
+          <HelperText
+            type="error"
+            style={styles.helperText}
+            visible={touched.item && errors.item ? true : false}>
+            {errors.item}
+          </HelperText>
 
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-            }}>
-            <View style={{flex: 0.46}}>
+          {showFrequents && (
+            <>
+              <TextX scale={1.7} style={{marginLeft: 5}}>
+                Pick from frequents
+              </TextX>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  marginBottom: 15,
+                  marginRight: 20,
+                  width: layout.width,
+                }}>
+                {frequents.map(({item}: {item: string}, key: number) => (
+                  <Chip
+                    key={key}
+                    selected={values.item === item ? true : false}
+                    selectedColor="#000"
+                    showSelectedOverlay
+                    style={{backgroundColor: '#e0e0e0', margin: 5}}
+                    onPress={() => setFieldValue('item', item)}>
+                    {item}
+                  </Chip>
+                ))}
+              </View>
+            </>
+          )}
+
+          <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+            <View style={{flex: 0.45}}>
               <TextInput
                 label="Opening *"
-                onChangeText={handleChange('opening')}
+                placeholder="items"
+                activeUnderlineColor={
+                  touched.opening && Boolean(errors.opening)
+                    ? theme.colors.error
+                    : theme.colors.secondary
+                }
+                error={touched.opening && Boolean(errors.opening)}
+                keyboardType="numeric"
+                maxLength={3}
                 onBlur={handleBlur('opening')}
-                placeholder="amount"
-                keyboardType="numeric"
-                maxLength={3}
+                onChangeText={handleChange('opening')}
                 style={styles.textInput}
-                theme={{roundness: 0}}
                 value={values.opening}
+                render={props => (
+                  <MaskInput
+                    {...props}
+                    mask={createNumberMask({
+                      delimiter: ',',
+                      separator: '.',
+                      precision: 0,
+                    })}
+                    onChangeText={(masked, unmasked) =>
+                      setFieldValue('opening', unmasked)
+                    }
+                  />
+                )}
               />
+              <HelperText
+                type="error"
+                style={styles.helperText}
+                visible={touched.opening && errors.opening ? true : false}>
+                {errors.opening}
+              </HelperText>
             </View>
 
-            <View style={{flex: 0.46}}>
+            <View style={{flex: 0.45}}>
               <TextInput
-                label="Closing (Opt.)"
-                onChangeText={handleChange('closing')}
-                onBlur={handleBlur('closing')}
-                placeholder="amount"
+                label="Closing (optional)"
+                placeholder="of the item"
+                activeUnderlineColor={
+                  touched.closing && Boolean(errors.closing)
+                    ? theme.colors.error
+                    : theme.colors.secondary
+                }
+                error={touched.closing && Boolean(errors.closing)}
                 keyboardType="numeric"
                 maxLength={3}
+                onBlur={handleBlur('closing')}
                 style={styles.textInput}
-                theme={{roundness: 0}}
                 value={values.closing}
+                render={props => (
+                  <MaskInput
+                    {...props}
+                    mask={createNumberMask({
+                      delimiter: ',',
+                      separator: '.',
+                      precision: 0,
+                    })}
+                    onChangeText={(masked, unmasked) =>
+                      setFieldValue('closing', unmasked)
+                    }
+                  />
+                )}
               />
+              <HelperText
+                type="error"
+                style={styles.helperText}
+                visible={touched.closing && errors.closing ? true : false}>
+                {errors.closing}
+              </HelperText>
             </View>
           </View>
 
-          <View
-            style={{
-              backgroundColor:
-                JSON.stringify(touched) === '{}' ||
-                JSON.stringify(errors) !== '{}' ||
-                isSubmitting
-                  ? 'transparent'
-                  : primary,
-              borderRadius: 40,
-              marginHorizontal: 50,
-            }}>
-            <ButtonX
-              errors={errors}
-              isSubmitting={isSubmitting}
-              touched={touched}
-              values={values}
-              onPress={() => handleSubmit()}
-              style={{width: 150}}>
-              ADD
-            </ButtonX>
-          </View>
+          <ButtonX
+            errors={errors}
+            isSubmitting={isSubmitting}
+            touched={touched}
+            values={values}
+            onPress={() => handleSubmit()}
+            style={{width: 150}}>
+            ADD
+          </ButtonX>
         </View>
       )}
     </Formik>

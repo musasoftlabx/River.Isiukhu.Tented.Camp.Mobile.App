@@ -18,7 +18,7 @@ export default function Kitchen() {
   const {height} = useWindowDimensions();
 
   return (
-    <View style={{backgroundColor: theme.colors.primary, paddingTop: 50}}>
+    <View style={{backgroundColor: theme.colors.secondary, paddingTop: 50}}>
       <View style={{alignItems: 'center'}}>
         <Motion.Text
           animate={{x: 0, y: 0}}
@@ -39,7 +39,7 @@ export default function Kitchen() {
         startingDate={new Date()}
         selectedDate={new Date()}
         style={{height: height * 0.15}}
-        calendarColor={theme.colors.primary}
+        calendarColor={theme.colors.secondary}
         calendarHeaderStyle={{
           color: 'white',
           fontFamily: 'Abel',

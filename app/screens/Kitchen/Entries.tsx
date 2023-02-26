@@ -2,63 +2,70 @@
 import {memo, useRef, useState} from 'react';
 
 // * React Native
-import {Pressable, Vibration, View} from 'react-native';
+import {Pressable, RefreshControl, Vibration, View} from 'react-native';
 
 // * React Native Libraries
-import {ShadowedView, shadowStyle} from 'react-native-fast-shadow';
-import {RFPercentage as s} from 'react-native-responsive-fontsize';
-import {FlatList, TouchableOpacity} from 'react-native-gesture-handler';
+import {FlatList} from 'react-native-gesture-handler';
 import {Modalize} from 'react-native-modalize';
 import {Text, useTheme} from 'react-native-paper';
 
 // * Components
 import Edit from './Edit';
+import TextX from '../../components/TextX';
+import {useQuery, useQueryClient} from '@tanstack/react-query';
+import {useConfigStore} from '../../store';
 
-const Entries = () => {
+import {ISelected} from './';
+
+const Entries = ({setSelected}: ISelected) => {
   const theme = useTheme();
+  const axios = useConfigStore(state => state.axios);
+  const [refreshing, setRefreshing] = useState(false);
+  const queryClient = useQueryClient();
+
+  const {data, isFetching, isFetched} = useQuery(
+    ['kitchen'],
+    ({queryKey}) => axios.get(queryKey[0]),
+    {select: data => data.data},
+  );
 
   const editRef = useRef<Modalize>();
-
-  const [selected, setSelected] = useState<any>();
 
   return (
     <View>
       <FlatList
-        data={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17].map(
-          () => ({
-            image: '',
-            name: 'Kuku ya kukaanga na ya ',
-            opening: 23,
-            closing: 2,
-            purchased: {on: '12.01.2023', by: 'Liztalia Owendi'},
-          }),
-        )}
+        data={data}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              setTimeout(() => {
+                queryClient.refetchQueries(['kitchen']);
+                setRefreshing(false);
+              }, 1000);
+            }}
+          />
+        }
         renderItem={({item, index}) => (
-          <Pressable
-            onPress={() => (
-              Vibration.vibrate(50), setSelected(item), editRef.current?.open()
-            )}>
-            <ShadowedView
-              style={[
-                shadowStyle({opacity: 0.4, radius: 3, offset: [0, 0]}),
-                {
-                  alignItems: 'center',
-                  backgroundColor: '#ECF0F3',
-                  borderRadius: 10,
-                  flexDirection: 'row',
-                  marginHorizontal: 10,
-                  marginVertical: 7,
-                  paddingHorizontal: 10,
-                  paddingVertical: 5,
-                },
-              ]}>
+          <Pressable onPress={() => (Vibration.vibrate(50), setSelected(item))}>
+            <View
+              style={{
+                alignItems: 'center',
+                borderRadius: 10,
+                flexDirection: 'row',
+                marginHorizontal: 10,
+                marginVertical: 7,
+                paddingHorizontal: 10,
+                paddingVertical: 5,
+              }}>
               <View style={{flex: 0.6, justifyContent: 'center'}}>
-                <Text numberOfLines={1} style={{fontSize: s(2.5)}}>
-                  {item.name}
-                </Text>
-                <Text numberOfLines={1} style={{fontSize: s(1.9)}}>
-                  {item.purchased.on}
-                </Text>
+                <TextX bold font="Laila-Bold" numberOfLines={1} scale={2.3}>
+                  {item.item}
+                </TextX>
+                <TextX numberOfLines={1} scale={1.9}>
+                  {item.stocked.on}
+                </TextX>
               </View>
 
               <View
@@ -68,46 +75,46 @@ const Entries = () => {
                   justifyContent: 'flex-end',
                   flexDirection: 'row',
                 }}>
-                <Text
+                <View
                   style={{
-                    color: theme.colors.secondary,
-                    fontSize: s(1.5),
-                    marginRight: 2,
+                    alignItems: 'center',
+                    backgroundColor: theme.colors.primary,
+                    borderRadius: 10,
+                    paddingHorizontal: 5,
+                    paddingVertical: 2,
                   }}>
-                  opening
-                </Text>
-                <Text style={{color: theme.colors.secondary, fontSize: s(2.5)}}>
-                  {item.opening}
-                </Text>
-                <Text
-                  style={{
-                    color: theme.colors.secondary,
-                    fontSize: s(2.5),
-                    marginHorizontal: 3,
-                  }}>
-                  |
-                </Text>
-                <Text
-                  style={{
-                    color: theme.colors.secondary,
-                    fontSize: s(1.5),
-                    marginRight: 3,
-                  }}>
-                  closing
-                </Text>
-                <Text style={{color: theme.colors.secondary, fontSize: s(2.5)}}>
-                  {item.closing}
-                </Text>
+                  <TextX color="#fff" scale={1.3}>
+                    opening
+                  </TextX>
+                  <TextX color="#fff" mt={-7} scale={2.5}>
+                    {String(item.opening).padStart(2, '0')}
+                  </TextX>
+                </View>
+
+                {item.closing && (
+                  <View
+                    style={{
+                      alignItems: 'center',
+                      backgroundColor: theme.colors.secondary,
+                      borderRadius: 10,
+                      marginLeft: 10,
+                      paddingHorizontal: 5,
+                      paddingVertical: 2,
+                    }}>
+                    <TextX color="#fff" scale={1.3}>
+                      closing
+                    </TextX>
+                    <TextX color="#fff" mt={-7} scale={2.5}>
+                      {String(item.closing).padStart(2, '0')}
+                    </TextX>
+                  </View>
+                )}
               </View>
-            </ShadowedView>
+            </View>
           </Pressable>
         )}
         style={{marginVertical: 10}}
       />
-
-      <Modalize ref={editRef} adjustToContentHeight>
-        <Edit item={selected} />
-      </Modalize>
     </View>
   );
 };

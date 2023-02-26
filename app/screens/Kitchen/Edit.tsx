@@ -2,8 +2,7 @@
 import {Alert, View} from 'react-native';
 
 // * React Native Libraries
-import {Button, Text, TextInput, useTheme} from 'react-native-paper';
-import {RFPercentage as s} from 'react-native-responsive-fontsize';
+import {HelperText, TextInput, useTheme} from 'react-native-paper';
 
 // * JS Libraries
 import {useMutation} from '@tanstack/react-query';
@@ -13,20 +12,34 @@ import * as Yup from 'yup';
 // * Utilities
 import {useConfigStore} from '../../store';
 import {styles} from '../../styles';
+import ButtonX from '../../components/ButtonX';
+import {queryClient} from '../../../App';
+import MaskInput, {createNumberMask} from 'react-native-mask-input';
+import TextX from '../../components/TextX';
 
-const Edit = (props: {item: {name: any}}) => {
-  const {name} = props.item;
+// * Interfaces
+import {ISelected} from './';
+interface IForm {
+  closing: string;
+}
 
+const Edit = ({
+  editRef,
+  item: {_id, item, opening, closing},
+}: {
+  editRef: any;
+  item: ISelected;
+}) => {
   const theme = useTheme();
   // ? useStore
   const axios = useConfigStore(state => state.axios);
 
   // ? useMutation
-  const {mutate} = useMutation(body => axios.post('login', body));
+  const {mutate} = useMutation((data: IForm) => axios.put('kitchen', data));
 
   return (
     <Formik
-      initialValues={{closing: ''}}
+      initialValues={{_id, closing: closing.toString() || ''}}
       validationSchema={Yup.object({
         closing: Yup.number()
           .test(
@@ -36,18 +49,42 @@ const Edit = (props: {item: {name: any}}) => {
           )
           .required('Required'),
       })}
-      onSubmit={(values, {setSubmitting}) => {
-        console.log('dggerheb');
-        Alert.alert('sub', 'error.response.data.body', [{text: 'OK'}]);
+      onSubmit={(values, {resetForm, setSubmitting}) => {
+        if (Number(values.closing) > opening) {
+          setSubmitting(false);
+          Alert.alert(
+            'Not allowed',
+            'Closing value cannot be greater than opening value',
+            [{text: 'OK'}],
+          );
+        } else {
+          mutate(values, {
+            onSuccess: () => {
+              queryClient.prefetchQuery(['kitchen']);
+              resetForm();
+              editRef.current?.close();
+            },
+            onError: (error: any) => {
+              setSubmitting(false);
+              Alert.alert(
+                error.response.data.subject,
+                error.response.data.body,
+                [{text: 'OK'}],
+              );
+            },
+            onSettled: () => setSubmitting(false),
+          });
+        }
       }}>
       {({
-        values,
         errors,
-        touched,
-        handleChange,
-        handleBlur,
-        handleSubmit,
         isSubmitting,
+        touched,
+        values,
+        handleBlur,
+        handleChange,
+        handleSubmit,
+        setFieldValue,
       }) => (
         <View
           style={{
@@ -57,58 +94,53 @@ const Edit = (props: {item: {name: any}}) => {
             paddingHorizontal: 20,
             paddingVertical: 20,
           }}>
-          <Text style={{fontSize: s(2)}}>Edit entry for</Text>
-          <Text style={{fontSize: s(3), marginTop: -5, marginBottom: 10}}>
-            {name}
-          </Text>
+          <TextX scale={2}>Edit entry for</TextX>
+          <TextX mt={-5} mb={10} scale={3}>
+            {item}
+          </TextX>
           <TextInput
             label="Closing"
-            onChangeText={handleChange('closing')}
-            onBlur={handleBlur('closing')}
-            placeholder="amount"
+            placeholder="quantity"
+            activeUnderlineColor={
+              touched.closing && Boolean(errors.closing)
+                ? theme.colors.error
+                : theme.colors.secondary
+            }
+            error={touched.closing && Boolean(errors.closing)}
             keyboardType="numeric"
             maxLength={3}
+            onBlur={handleBlur('closing')}
             style={styles.textInput}
-            theme={{roundness: 0}}
             value={values.closing}
+            render={props => (
+              <MaskInput
+                {...props}
+                mask={createNumberMask({
+                  delimiter: ',',
+                  separator: '.',
+                  precision: 0,
+                })}
+                onChangeText={(masked, unmasked) =>
+                  setFieldValue('closing', unmasked)
+                }
+              />
+            )}
           />
+          <HelperText
+            type="error"
+            style={styles.helperText}
+            visible={touched.closing && errors.closing ? true : false}>
+            {errors.closing}
+          </HelperText>
 
-          <View
-            style={{
-              backgroundColor:
-                JSON.stringify(touched) === '{}' ||
-                JSON.stringify(errors) !== '{}' ||
-                isSubmitting
-                  ? 'transparent'
-                  : theme.colors.primary,
-              borderRadius: 40,
-              marginHorizontal: 50,
-            }}>
-            <Button
-              contentStyle={{
-                borderColor: theme.colors.background,
-                borderRadius: 40,
-                borderWidth: 2,
-                margin: 2,
-              }}
-              disabled={
-                JSON.stringify(touched) === '{}' ||
-                JSON.stringify(errors) !== '{}' ||
-                isSubmitting
-              }
-              labelStyle={{fontSize: s(2)}}
-              loading={isSubmitting}
-              mode="contained"
-              onPress={() => handleSubmit()}
-              style={{
-                elevation:
-                  JSON.stringify(touched) !== '{}' || isSubmitting ? 0 : 20,
-              }}
-              textColor="white"
-              theme={{roundness: 6}}>
-              UPDATE
-            </Button>
-          </View>
+          <ButtonX
+            errors={errors}
+            isSubmitting={isSubmitting}
+            values={values}
+            onPress={() => handleSubmit()}
+            style={{width: 150}}>
+            UPDATE
+          </ButtonX>
         </View>
       )}
     </Formik>
